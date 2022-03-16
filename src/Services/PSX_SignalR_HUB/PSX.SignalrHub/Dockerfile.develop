@@ -1,0 +1,19 @@
+FROM mcr.microsoft.com/dotnet/sdk:5.0
+ARG BUILD_CONFIGURATION=Debug
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+EXPOSE 80
+
+WORKDIR /src
+COPY ["src/BuildingBlocks/EventBus/EventBus/EventBus.csproj", "src/BuildingBlocks/EventBus/EventBus/"]
+COPY ["src/BuildingBlocks/EventBus/EventBusRabbitMQ/EventBusRabbitMQ.csproj", "src/BuildingBlocks/EventBus/EventBusRabbitMQ/"]
+COPY ["src/BuildingBlocks/EventBus/EventBusServiceBus/EventBusServiceBus.csproj", "src/BuildingBlocks/EventBus/EventBusServiceBus/"]
+COPY ["src/Services/AKDTrading/AKDTrading.SignalrHub/AKDTrading.SignalrHub.csproj", "src/Services/AKDTrading/AKDTrading.SignalrHub/"]
+COPY ["src/NuGet.config", "src/NuGet.config"]
+
+RUN dotnet restore src/Services/AKDTrading/AKDTrading.SignalrHub/AKDTrading.SignalrHub.csproj
+COPY . .
+WORKDIR /src/src/Services/AKDTrading/AKDTrading.SignalrHub
+RUN dotnet build -c $BUILD_CONFIGURATION
+
+ENTRYPOINT ["dotnet", "run", "--no-build", "--no-launch-profile", "-c", "$BUILD_CONFIGURATION", "--"]

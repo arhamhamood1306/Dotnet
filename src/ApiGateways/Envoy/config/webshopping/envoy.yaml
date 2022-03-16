@@ -1,0 +1,155 @@
+admin:
+  access_log_path: "/dev/null"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8001
+static_resources:
+  listeners:
+  - address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 80
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          codec_type: auto
+          stat_prefix: ingress_http
+          route_config:
+            name: akd_trading_backend_route
+            virtual_hosts:
+            - name: akd_trading_backend
+              domains:
+              - "*"
+              routes:
+              - name: "i-short"
+                match:
+                  prefix: "/i/"
+                route:
+                  auto_host_rewrite: true
+                  prefix_rewrite: "/identity-api/"
+                  cluster: identity
+              - name: "i-long"
+                match:
+                  prefix: "/identity-api/"
+                route:
+                  auto_host_rewrite: true
+                  cluster: identity
+              - name: "f-short"
+                match:
+                  prefix: "/f/"
+                route:
+                  auto_host_rewrite: true
+                  prefix_rewrite: "/finance-api/"
+                  cluster: finance
+              - name: "f-long"
+                match:
+                  prefix: "/finance-api/"
+                route:
+                  auto_host_rewrite: true
+                  cluster: finance
+              - name: "h-long"
+                match:
+                  prefix: "/hub/notificationhub"
+                route:
+                  auto_host_rewrite: true
+                  cluster: signalr-hub
+                  timeout: 300s
+                  upgrade_configs:
+                    upgrade_type: "websocket"
+                    enabled: true
+              - name: "p-short"
+                match:
+                  prefix: "/p/"
+                route:
+                  auto_host_rewrite: true
+                  prefix_rewrite: "/psx-api/"
+                  cluster: psx
+              - name: "p-long"
+                match:
+                  prefix: "/psx-api/"
+                route:
+                  auto_host_rewrite: true
+                  cluster: psx
+              - name: "n-short"
+                match:
+                  prefix: "/n/"
+                route:
+                  auto_host_rewrite: true
+                  prefix_rewrite: "/notification-api/"
+                  cluster: notification
+              - name: "n-long"
+                match:
+                  prefix: "/notification-api/"
+                route:
+                  auto_host_rewrite: true
+                  cluster: notification
+              - name: "agg"
+                match:
+                  prefix: "/"
+                route:
+                  auto_host_rewrite: true
+                  prefix_rewrite: "/"
+                  cluster: akdtradingagg
+          http_filters:
+          - name: envoy.router
+          access_log:
+          - name: envoy.file_access_log
+            filter:
+              not_health_check_filter: {}
+            config:
+              json_format:
+                time: "%START_TIME%"
+                protocol: "%PROTOCOL%"
+                duration: "%DURATION%"
+                request_method: "%REQ(:METHOD)%"
+                request_host: "%REQ(HOST)%"
+                path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                response_flags: "%RESPONSE_FLAGS%"
+                route_name: "%ROUTE_NAME%"
+                upstream_host: "%UPSTREAM_HOST%"
+                upstream_cluster: "%UPSTREAM_CLUSTER%"
+                upstream_local_address: "%UPSTREAM_LOCAL_ADDRESS%"
+              path: "/tmp/access.log"
+  clusters:
+  - name: akdtradingagg
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: akdtradingagg
+        port_value: 80
+  - name: identity
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: identity-api
+        port_value: 80
+  - name: psx
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: psx-api
+        port_value: 80
+  - name: finance
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: finance-api
+        port_value: 80
+  - name: signalr-hub
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: akd-trading-signalrhub
+        port_value: 80
